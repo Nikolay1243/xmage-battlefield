@@ -64,3 +64,6 @@ mage-bundle.zip
 
 # dev tools
 .devcontainer/**/*lock.json
+
+# PixiJS renderer dependencies
+Mage.Client/renderer/node_modules/

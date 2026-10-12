@@ -11,6 +11,17 @@ import org.apache.log4j.Logger;
  */
 public class AudioManager {
 
+    private static final java.util.Map<java.util.UUID, Long> battlefieldAudio = new java.util.concurrent.ConcurrentHashMap<>();
+    /** Heartbeat lease restores regular audio if a renderer disappears unexpectedly. */
+    public static void battlefieldPresence(java.util.UUID game, boolean open) {
+        if(game==null)return;
+        if(open)battlefieldAudio.put(game,System.currentTimeMillis()+2500);else battlefieldAudio.remove(game);
+    }
+    public static boolean battlefieldMuted() {
+        long now=System.currentTimeMillis();battlefieldAudio.entrySet().removeIf(e->e.getValue()<=now);
+        return !battlefieldAudio.isEmpty();
+    }
+
     private static final Logger log = Logger.getLogger(AudioManager.class);
 
     private MageClip nextPageClip = null;
@@ -308,6 +319,7 @@ public class AudioManager {
     }
 
     private static void checkAndPlayClip(MageClip mageClip) {
+        if(battlefieldMuted())return;
         try {
             if (mageClip == null || mageClip.getBuffer() == null) {
                 return;
@@ -321,6 +333,7 @@ public class AudioManager {
     }
 
     public void play(final MageClip mageClip) {
+        if (battlefieldMuted())return;
         if (linePool != null) {
             linePool.playSound(mageClip);
         }

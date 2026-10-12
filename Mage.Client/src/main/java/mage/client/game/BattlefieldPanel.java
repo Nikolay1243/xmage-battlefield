@@ -42,6 +42,11 @@ public class BattlefieldPanel extends javax.swing.JLayeredPane {
     private static final Logger logger = Logger.getLogger(BattlefieldPanel.class);
 
     private static final int GAME_REDRAW_TIMEOUT_MS = 300; // timeout before game goes to redraw on scrollbars change
+    private static final int ARRIVAL_EFFECT_MS = 450;
+    private final Map<UUID, Long> arrivalEffects = new HashMap<>();
+    private final Timer arrivalTimer = new Timer(30, event -> tickArrivalEffects());
+    private boolean animationsEnabled = true;
+    private boolean receivedBattlefield;
 
     // WARNING, permanents contains top level PANELS (cards), use getMainPanel for real MagePermanent (permanents)
     // Source code logic and naming here:
@@ -102,11 +107,14 @@ public class BattlefieldPanel extends javax.swing.JLayeredPane {
     }
 
     public void init(UUID gameId, BigCard bigCard) {
+        clearArrivalEffects();
+        receivedBattlefield = false;
         this.gameId = gameId;
         this.bigCard = bigCard;
     }
 
     public void cleanUp() {
+        clearArrivalEffects();
         gameUpdateTimer.stop();
 
         for (Component c : this.jPanel.getComponents()) {
@@ -234,7 +242,12 @@ public class BattlefieldPanel extends javax.swing.JLayeredPane {
         int count = permanentsToAdd.size();
         for (PermanentView permanent : permanentsToAdd) {
             addPermanent(permanent, count);
+            if (animationsEnabled && receivedBattlefield && isShowing()) {
+                arrivalEffects.put(permanent.getId(), System.nanoTime());
+            }
         }
+        receivedBattlefield = true;
+        if (!arrivalEffects.isEmpty()) arrivalTimer.start();
 
         if (addedArtifact) {
             AudioManager.playAddArtifact();
@@ -263,6 +276,56 @@ public class BattlefieldPanel extends javax.swing.JLayeredPane {
             this.battlefield = battlefield;
             sortLayout();
         }
+    }
+
+    public void setAnimationsEnabled(boolean enabled) {
+        animationsEnabled = enabled;
+        if (!enabled) clearArrivalEffects();
+    }
+
+    private void tickArrivalEffects() {
+        long now = System.nanoTime();
+        arrivalEffects.entrySet().removeIf(entry -> !permanents.containsKey(entry.getKey())
+                || now - entry.getValue() >= ARRIVAL_EFFECT_MS * 1_000_000L);
+        if (!isShowing() || arrivalEffects.isEmpty()) clearArrivalEffects();
+        repaint();
+    }
+
+    private void clearArrivalEffects() {
+        arrivalTimer.stop();
+        arrivalEffects.clear();
+        repaint();
+    }
+
+    @Override
+    public void removeNotify() {
+        clearArrivalEffects();
+        super.removeNotify();
+    }
+
+    @Override
+    protected void paintChildren(Graphics graphics) {
+        super.paintChildren(graphics);
+        if (arrivalEffects.isEmpty()) return;
+        Graphics2D g = (Graphics2D) graphics.create();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.clip(SwingUtilities.convertRectangle(jScrollPane.getViewport(),
+                jScrollPane.getViewport().getVisibleRect(), this));
+        long now = System.nanoTime();
+        for (Map.Entry<UUID, Long> entry : arrivalEffects.entrySet()) {
+            MageCard card = permanents.get(entry.getKey());
+            if (card == null || card.getParent() == null || !card.isShowing()) continue;
+            float progress = Math.min(1f, (now - entry.getValue()) / (ARRIVAL_EFFECT_MS * 1_000_000f));
+            Rectangle bounds = SwingUtilities.convertRectangle(card.getParent(), card.getCardLocation().getCardBounds(), this);
+            if (bounds.width <= 0 || bounds.height <= 0) continue;
+            int spread = Math.round(progress * 6);
+            g.setComposite(AlphaComposite.SrcOver.derive((1 - progress) * 0.8f));
+            g.setColor(new Color(105, 185, 255));
+            g.setStroke(new BasicStroke(3));
+            g.drawRoundRect(bounds.x - spread, bounds.y - spread,
+                    bounds.width + spread * 2, bounds.height + spread * 2, 12, 12);
+        }
+        g.dispose();
     }
 
     public void sortLayout() {

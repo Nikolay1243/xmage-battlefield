@@ -73,13 +73,13 @@ public enum CombatManager {
         for (PlayAreaPanel pa2 : MageFrame.getGamePlayers(gameId).values()) {
             MageCard attackerCard = pa2.getBattlefieldPanel().getPermanentPanels().get(attacker.getId());
             if (attackerCard != null) {
-                drawDefender(group, attackerCard, gameId);
-                drawBlockers(group, attackerCard, gameId);
+                drawDefender(group, attackerCard, pa2, gameId);
+                drawBlockers(group, attackerCard, pa2, gameId);
             }
         }
     }
 
-    private void drawDefender(CombatGroupView group, MageCard attackerCard, UUID gameId) {
+    private void drawDefender(CombatGroupView group, MageCard attackerCard, PlayAreaPanel attackerBoard, UUID gameId) {
         UUID defenderId = group.getDefenderId();
         if (defenderId != null) {
             // if attacker was blocked then use another arrow color
@@ -90,17 +90,17 @@ public enum CombatManager {
                 // attack to player
                 Point target = p.getLocationOnScreen();
                 target.translate(-parentPoint.x, -parentPoint.y);
-                Point attackerPoint = attackerCard.getCardLocationOnScreen().getCardPoint();
+                Point attackerPoint = attackerBoard.getPermanentScreenPoint(attackerCard);
                 attackerPoint.translate(-parentPoint.x, -parentPoint.y);
-                ArrowBuilder.getBuilder().addArrow(gameId, (int) attackerPoint.getX() + 45, (int) attackerPoint.getY() + 25, (int) target.getX() + 40, (int) target.getY() - 20, attackColor, ArrowBuilder.Type.COMBAT);
+                ArrowBuilder.getBuilder().addArrow(gameId, (int) attackerPoint.getX() + 45, (int) attackerPoint.getY() + 25, (int) target.getX() + 40, (int) target.getY() + (p.isBoardCollapsed() ? 20 : -20), attackColor, ArrowBuilder.Type.COMBAT);
             } else {
                 // attack to planeswalker
                 for (PlayAreaPanel pa : MageFrame.getGamePlayers(gameId).values()) {
                     MageCard permanent = pa.getBattlefieldPanel().getPermanentPanels().get(defenderId);
                     if (permanent != null) {
-                        Point target = permanent.getCardLocationOnScreen().getCardPoint();
+                        Point target = pa.getPermanentScreenPoint(permanent);
                         target.translate(-parentPoint.x, -parentPoint.y);
-                        Point attackerPoint = attackerCard.getCardLocationOnScreen().getCardPoint();
+                        Point attackerPoint = attackerBoard.getPermanentScreenPoint(attackerCard);
                         attackerPoint.translate(-parentPoint.x, -parentPoint.y);
                         ArrowBuilder.getBuilder().addArrow(gameId, (int) attackerPoint.getX() + 45, (int) attackerPoint.getY() + 25, (int) target.getX() + 40, (int) target.getY() + 10, attackColor, ArrowBuilder.Type.COMBAT);
                     }
@@ -109,15 +109,15 @@ public enum CombatManager {
         }
     }
 
-    private void drawBlockers(CombatGroupView group, MageCard attackerCard, UUID gameId) {
+    private void drawBlockers(CombatGroupView group, MageCard attackerCard, PlayAreaPanel attackerBoard, UUID gameId) {
         for (CardView blocker : group.getBlockers().values()) {
             for (PlayAreaPanel pa : MageFrame.getGamePlayers(gameId).values()) {
                 MageCard blockerCard = pa.getBattlefieldPanel().getPermanentPanels().get(blocker.getId());
                 if (blockerCard != null) {
                     parentPoint = getParentPoint(blockerCard);
-                    Point blockerPoint = blockerCard.getCardLocationOnScreen().getCardPoint();
+                    Point blockerPoint = pa.getPermanentScreenPoint(blockerCard);
                     blockerPoint.translate(-parentPoint.x, -parentPoint.y);
-                    Point attackerPoint = attackerCard.getCardLocationOnScreen().getCardPoint();
+                    Point attackerPoint = attackerBoard.getPermanentScreenPoint(attackerCard);
                     attackerPoint.translate(-parentPoint.x, -parentPoint.y);
                     double yRateA = (attackerCard.getCardLocation().getCardHeight() / SettingsManager.instance.getCardSize().height);
                     double xRateA = (attackerCard.getCardLocation().getCardWidth() / SettingsManager.instance.getCardSize().width);

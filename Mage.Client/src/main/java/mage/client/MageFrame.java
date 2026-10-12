@@ -94,7 +94,7 @@ public class MageFrame extends javax.swing.JFrame implements MageClient {
         JavaUtil.applyDefaultClientSettings();
     }
 
-    private static final String TITLE_NAME = "XMage";
+    private static final String TITLE_NAME = "Xmage Battlefield";
 
     private static final Logger LOGGER = Logger.getLogger(MageFrame.class);
     private static final String LITE_MODE_ARG = "-lite";
@@ -1513,12 +1513,13 @@ public class MageFrame extends javax.swing.JFrame implements MageClient {
         setActive(collectionViewerPane);
     }
 
-    static void renderSplashFrame(Graphics2D g) {
-        g.setComposite(AlphaComposite.Clear);
-        g.fillRect(120, 140, 200, 40);
-        g.setPaintMode();
-        g.setColor(Color.white);
-        g.drawString("Version 0.6.1", 560, 460);
+    static void renderSplashFrame(Graphics2D g, int height) {
+        g.setComposite(AlphaComposite.SrcOver);
+        g.setColor(new Color(8, 12, 20, 180));
+        g.fillRect(0, height-34, 960, 34);
+        g.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
+        g.setColor(new Color(232, 218, 184));
+        g.drawString("Starting client…  ·  " + VERSION, 18, height-12);
     }
 
     /**
@@ -1571,7 +1572,7 @@ public class MageFrame extends javax.swing.JFrame implements MageClient {
                 if (splash != null) {
                     Graphics2D g2 = splash.createGraphics();
                     try {
-                        renderSplashFrame(g2);
+                        renderSplashFrame(g2, splash.getSize().height);
                     } finally {
                         g2.dispose();
                     }

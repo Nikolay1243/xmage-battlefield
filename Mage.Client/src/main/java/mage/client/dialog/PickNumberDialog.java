@@ -79,6 +79,22 @@ public class PickNumberDialog extends MageDialog {
         this.setVisible(true);
     }
 
+    public java.util.Map<String,Object> rendererChoice() {
+        if(!isVisible())return null;
+        SpinnerNumberModel model=(SpinnerNumberModel)editAmount.getModel();
+        java.util.Map<String,Object> row=new java.util.LinkedHashMap<>();
+        row.put("min",model.getMinimum());row.put("max",model.getMaximum());row.put("value",model.getNumber());
+        row.put("message",textMessage.getText().replaceAll("<[^>]*>"," "));
+        return row;
+    }
+    public boolean rendererChoose(String value) {
+        if(!isVisible())return false;
+        try {int amount=Integer.parseInt(value);SpinnerNumberModel model=(SpinnerNumberModel)editAmount.getModel();
+            if(amount<((Number)model.getMinimum()).intValue()||amount>((Number)model.getMaximum()).intValue())return false;
+            editAmount.setValue(amount);buttonOk.doClick(0);return true;
+        }catch(NumberFormatException error){return false;}
+    }
+
     public int getAmount() {
         return ((Number) editAmount.getValue()).intValue();
     }

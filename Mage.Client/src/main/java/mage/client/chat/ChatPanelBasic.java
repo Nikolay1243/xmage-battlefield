@@ -293,6 +293,22 @@ public class ChatPanelBasic extends javax.swing.JPanel {
         return "<font color='" + color + "'>" + text + "</font>";
     }
 
+    public String rendererPlainText() {
+        try {
+            javax.swing.text.Document document = txtConversation.getDocument();
+            int start = Math.max(0, document.getLength() - 24000);
+            return document.getText(start, document.getLength() - start);
+        } catch (javax.swing.text.BadLocationException error) { return ""; }
+    }
+
+    public boolean rendererSend(String message) {
+        UUID destination = parentChatRef == null ? chatId : parentChatRef.chatId;
+        if (destination == null || message == null || message.trim().isEmpty()
+                || message.length() > Constants.MAX_CHAT_MESSAGE_SIZE) return false;
+        SessionHandler.sendChatMessage(destination, message);
+        return true;
+    }
+
     public String getText() {
         return txtConversation.getText();
     }

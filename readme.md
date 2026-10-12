@@ -1,87 +1,75 @@
-# XMage — Magic, Another Game Engine
+# Xmage Battlefield
 
-[![Build Status](https://github.com/magefree/mage/actions/workflows/maven.yml/badge.svg)](https://github.com/magefree/mage/actions/workflows/maven.yml)
-[![Latest release](https://img.shields.io/github/v/release/magefree/mage)](https://github.com/magefree/mage/releases/)
-[![Commits since latest release](https://img.shields.io/github/commits-since/magefree/mage/latest)](https://github.com/magefree/mage/commits/)
+An experimental XMage client refresh focused on readable multiplayer battlefields and responsive, animated gameplay at **1920 × 1080**. The existing Java engine still handles Magic rules, hidden information and server connectivity; a TypeScript/PixiJS renderer presents the game.
 
-XMage is a full rules-enforcement engine for playing Magic against other players or computer AI,
-online or on your own server. It supports over **32 000** unique cards and more than 91 000 reprints across official sets, plus custom sets like Star Wars.
+## Battlefield features
 
-Local server supports a [special test mode](https://github.com/magefree/mage/wiki/Development-Testing-Tools) for testing combos and other game situations with pre-defined conditions.
+- Your battlefield stays expanded. Opponents expand when they act rather than every time priority changes; manually pinned boards stay open. Collapsed players have commander artwork and distinct colours.
+- Creatures, artifacts and enchantments are grouped into readable rows, with adaptive card sizes and scrolling for crowded boards. Lands use a thin horizontal band grouped by type and name.
+- Large hand cards rise on hover, with playable-card feedback. Card previews show artwork and formatted rules; long rules can be scrolled with the mouse wheel while hovering.
+- Compact player headers expose life, mana and clickable library, graveyard and exile zones. Command zones collapse by default. Player details show available commander damage, tax and poison information.
+- A thin phase strip separates your board from opponents and contains the current turn, prompts, pass and skip controls.
+- Floating chat and zone windows keep the battlefield clear. The stack appears only when occupied and displays spell or ability rules.
+- Commander crowns, counters, token markers, attachments and summoning-sickness icons identify battlefield state. Combat arrows point to defending players' life totals.
+- Short spawn, attack, block, damage, buff, death and stack-exit animations follow game updates without delaying input. Offscreen opponent activity scrolls into view.
+- Original custom sounds accompany gameplay. Regular XMage audio is muted while Battlefield audio is active, and an attention cue plays when input is needed while the native window is unfocused.
+- Saved preferences control card size, animation intensity, volume and preview position. Reduced-motion settings are respected.
 
-There are public servers where you can play XMage against other players.
-You can also host your own server to play against the AI and/or your friends — including fully offline, with no internet connection required.
+**Smart Skip** is optional: it passes empty-stack priority when the server reports no relevant actions, while keeping your main phases and combat manual. **Auto Pay** is optional: it spends pool mana and taps eligible lands for ordinary coloured/generic costs. Ambiguous mana sources and unsupported costs remain manual.
 
-XMage community and resources:
-* [Official XMage support and feature request on github](https://github.com/magefree/mage/issues);
-* [Reddit XMage group](https://www.reddit.com/r/XMage/);
-* [Reddit XMage discord channel](https://discord.gg/Pqf42yn);
-* [Latest news](https://jaydi85.github.io/xmage-web-news/news.html);
-* [Latest releases](https://github.com/magefree/mage/releases);
-* [Project documentation](https://github.com/magefree/mage/wiki).
+## Running this version
 
-Official public server with released version:
-* https://xmage.today/
+This repository contains source and packaged web resources; downloading the standard upstream XMage client does not install Battlefield.
 
-Other servers and status:
-* https://xmage.today/servers/ (temporarily out of service)
+Build the refreshed Java client and install it into a compatible XMage client distribution, keeping its dependency jars. Join a game, then select **Modern battlefield (experimental)** above the existing battlefield.
 
-## Features
+On Apple silicon macOS, the optional native WebKit host opens Battlefield in a client-managed companion window. The Swing lobby and remaining native dialogs stay available. Other platforms open the renderer in a browser. Keep the Java client running in either case.
 
-* The most tested open-source rules enforcement engine: ~9000 unit tests, ~80% coverage;
-* Cross-platform support: Windows, Linux, MacOS;
-* Two-player duels or multiplayer games (Commander and others) with up to 10 players;
-* Drafts, tournaments and single games with sideboarding supported;
-* Smart and fast AI opponents for both games and draft/deck-building;
-* Cheat-proof by design: all rules and hidden information are enforced server-side — clients never see or act on data they're not authorized to;
-* Deck editor (support deck import from multiple apps and services);
-* Players rating system (Glicko);
-* Supports dozens of formats and game modes like Commander, Oathbreaker, Cube, Tiny Leaders, Super Standard, Historic Standard and more;
-* Single matches or tournaments supported (elimination or swiss type handling), which can be played with up to 16 players;
+Copy the files from [`Mage.Client/renderer/sound-pack`](Mage.Client/renderer/sound-pack) into a `battlefield-sounds` folder in the client working directory. Its README describes supported files. The updated splash screen is included in the client sources.
 
-## Bug report / feature request
+## Building and previewing
 
-The best way to report bug or feature request is [github's issues page](https://github.com/magefree/mage/issues).
+Use a current Node.js version supporting `--experimental-strip-types`, npm, Maven and a suitable JDK. Development and Apple silicon runtime checks have used Java 21.
 
-## Installation / running
+```sh
+cd Mage.Client/renderer
+npm ci
+npm test
+npm run build
+cd ../..
+mvn -pl Mage.Client -am -DskipTests package
+```
 
-* Download files and follow install instructions on https://xmage.today/
-* You need to have [Java version 8 or later](https://java.com/) to run launcher;
-* Recommended folder to unpack/install: `D:\games\xmage` (don't use Program Files or Download folders);
-* If you want to play with AI opponents then must run "server" app via the launcher and connect to it via localhost;
+The web build writes resources into `Mage.Client/src/main/resources/mage/client/game/renderer`; rebuild these after renderer changes. The packaged client needs no Node runtime or CDN.
 
-[Wiki page](https://github.com/magefree/mage/wiki) contains detailed information about private or public server setup, developer onboarding and other useful things
+To build the macOS companion (requires the Swift toolchain):
 
-## Troubleshooting / FAQ
+```sh
+cd Mage.Client/renderer
+sh native/build-macos.sh /absolute/path/to/client/lib
+```
 
-Github issues page contain [popular problems and fixes](https://github.com/magefree/mage/issues?q=is%3Aissue+label%3AFAQ+):
-* [Any: program freezes on startup (white/blue/black screen)](https://github.com/magefree/mage/issues/4461#issuecomment-361108597);
-* [Any: can't download images or it stops after some time](https://www.reddit.com/r/XMage/comments/agmcjf/new_xmage_release_with_ravnica_allegiance_rna/);
-* [Any: can't run client, could not open ...jvm.cfg](https://github.com/magefree/mage/issues/1272#issuecomment-529789018);
-* [Any: no texts or small buttons in launcher](https://github.com/magefree/mage/issues/4126);
-* [Windows: ugly cards, buttons or other GUI drawing artifacts](https://github.com/magefree/mage/issues/4626#issuecomment-374640070);
-* [Windows: pixilated images, icons and texts](https://github.com/magefree/mage/issues/12768#issuecomment-2347125602);
-* [MacOS: can't open launcher](https://www.reddit.com/r/XMage/comments/1u2ezx6/comment/or38wjd/);
-* [MacOS: can't run on M1/M2](https://github.com/magefree/mage/issues/8406#issuecomment-1011720728);
-* [MacOS: client freezes in GUI (on connect dialog, on new match)](https://github.com/magefree/mage/issues/4920#issuecomment-517944308);
-* [Linux: run on non-standard OS or hardware like Raspberry Pi](https://github.com/magefree/mage/issues/11611#issuecomment-1879385151);
-* [Linux: ugly GUI and drawing artifacts](https://github.com/magefree/mage/issues/11611#issuecomment-1879396921);
+To preview without a server:
 
-## Performance tweaks
+```sh
+cd Mage.Client/renderer
+npm run dev -- --port 5178
+```
 
-The main way to increase performance or fix micro-freezes -- increase max memory usage by special java flag:
-1. Run launcher -> Settings -> Java tab -> Client java options text field;
-2. Add or change existing flag to ` -Xmx3000m` or another value based on your free memory stats (recommended settings: 2000m for 1080p desktop, 3000m for 4k desktop). It's useless to give 5+ GB memory;
-3. If you play many AI games then it's recommended to change Server java options with same value too;
+Open `http://127.0.0.1:5178/?demo`. Use `?demo&stress` for crowded four-player boards and a long stack. Demo mode is a UI fixture, not a playable standalone client.
 
-## Development
+## Current scope and limitations
 
-Full project documentation and instructions for developers can be found in [wiki pages](https://github.com/magefree/mage/wiki/).
+Battlefield is opt-in and still experimental. Some ability pickers, context menus, trigger ordering and complex interactions use native XMage dialogs. Auto Pay does not cover every mana ability or cost. Stack exits cannot reliably distinguish resolution from countering using the available game snapshots. Connection information is limited to what the client receives.
 
-First steps for XMage's developers:
-* [Setting up your Development Environment](https://github.com/magefree/mage/wiki/Setting-up-your-Development-Environment)
-* [Development Testing Tools](https://github.com/magefree/mage/wiki/Development-Testing-Tools)
-* [Development Workflow](https://github.com/magefree/mage/wiki/Development-Workflow)
-* [Development HOWTO Guides](https://github.com/magefree/mage/wiki/Development-HOWTO-Guides)
+Automated checks cover renderer layout and activity handling, board focus, image redaction, preferences and payment planning. Four-player demo stress checks target 1080p; complete live Commander testing remains necessary. Smaller screens are not the design target.
 
-[Torch icons created by Freepik - Flaticon](https://www.flaticon.com/free-icons/torch)
+The loopback bridge serves each game through a separate local URL and forwards validated interactions to the Java client. It exports only game views already available to that player. This fork does not replace XMage's server or rules engine.
+
+See the [renderer guide](Mage.Client/renderer/README.md) for integration details and the [upstream XMage wiki](https://github.com/magefree/mage/wiki) for server, deck editor and development documentation.
+
+## Feedback and upstream
+
+Report Battlefield-specific issues in [this fork's issue tracker](https://github.com/Nikolay1243/xmage-battlefield/issues), including the game situation and whether the original XMage view behaves differently.
+
+Xmage Battlefield builds on [XMage](https://github.com/magefree/mage), which provides rules enforcement, multiplayer formats, AI, drafting, tournaments and deck editing. Thanks to its contributors. Existing licences and asset notices remain applicable; renderer asset attribution is in [THIRD_PARTY_NOTICES.txt](Mage.Client/renderer/public/THIRD_PARTY_NOTICES.txt).

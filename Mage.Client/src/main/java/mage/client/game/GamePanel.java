@@ -91,6 +91,13 @@ public final class GamePanel extends javax.swing.JPanel {
     private static final int DIVIDER_POSITION_HIDDEN_RIGHT_OR_BOTTOM = -3;
 
     private final Map<UUID, PlayAreaPanel> players = new LinkedHashMap<>();
+    private final JCheckBox focusBoards = new JCheckBox("Focus boards");
+    private final JCheckBox battlefieldAnimations = new JCheckBox("Animations");
+    private BoardFocusState boardFocusState;
+    private BrowserGameRenderer browserRenderer;
+    private FocusedBattlefieldLayout focusedBattlefieldLayout;
+    private static final String KEY_FOCUS_BOARDS = "gameFocusBoards";
+    private static final String KEY_BATTLEFIELD_ANIMATIONS = "gameBattlefieldAnimations";
     private final Map<UUID, Boolean> playersWhoLeft = new LinkedHashMap<>();
 
     // non modal frames
@@ -231,6 +238,74 @@ public final class GamePanel extends javax.swing.JPanel {
 
     private final LastGameData lastGameData = new LastGameData();
 
+    private static final java.util.Map<UUID, Long> rendererPresence = new java.util.concurrent.ConcurrentHashMap<>();
+    static boolean rendererActive(UUID id) { Long until = id == null ? null : rendererPresence.get(id); return until != null && until > System.currentTimeMillis(); }
+    void rendererPresence(boolean focused) { if (gameId != null) { if(focused) rendererPresence.put(gameId, System.currentTimeMillis()+2000); else rendererPresence.remove(gameId); } }
+    private JButton[] rendererSkipButtons() { return new JButton[]{btnSkipToNextTurn,btnSkipToEndTurn,btnSkipToNextMain,btnSkipToYourTurn,btnSkipStack,btnSkipToEndStepBeforeYourTurn,btnCancelSkip}; }
+    java.util.List<java.util.Map<String,Object>> rendererSkips() {
+        String[] labels={"Next turn","End turn","Next main","My turn","Resolve stack","Before my turn","Cancel skip"};
+        java.util.List<java.util.Map<String,Object>> result=new java.util.ArrayList<>(); JButton[] buttons=rendererSkipButtons();
+        boolean[] active={skipButtons.turn.pressState,skipButtons.untilEndOfTurn.pressState,skipButtons.untilNextMain.pressState,skipButtons.allTurns.pressState,skipButtons.untilStackResolved.pressState,skipButtons.untilUntilEndStepBeforeMyTurn.pressState,false};
+        if(playerId==null)return result;
+        for(int i=0;i<buttons.length;i++){if(!buttons[i].isVisible())continue;java.util.Map<String,Object> row=new java.util.LinkedHashMap<>();row.put("id",String.valueOf(i));row.put("label",labels[i]);row.put("enabled",buttons[i].isEnabled());row.put("active",active[i]);result.add(row);}return result;
+    }
+    boolean rendererSkip(String id) {
+        if(playerId==null)return false;
+        try {
+            int i=Integer.parseInt(id);JButton[] buttons=rendererSkipButtons();
+            if(i<0||i>=buttons.length||!buttons[i].isVisible()||!buttons[i].isEnabled())return false;
+            // Native skip buttons listen for mouse presses, not ActionEvents from doClick.
+            switch(i) {
+                case 0: btnEndTurnActionPerformed(null); break;
+                case 1: btnUntilEndOfTurnActionPerformed(null); break;
+                case 2: btnUntilNextMainPhaseActionPerformed(null); break;
+                case 3: btnPassPriorityUntilNextYourTurnActionPerformed(null); break;
+                case 4: btnPassPriorityUntilStackResolvedActionPerformed(null); break;
+                case 5: btnSkipToEndStepBeforeYourTurnActionPerformed(null); break;
+                case 6: restorePriorityActionPerformed(null); break;
+                default: return false;
+            }
+            return true;
+        } catch(NumberFormatException error){return false;}
+    }
+
+
+    String rendererChatText() { return userChatPanel.rendererPlainText(); }
+    boolean rendererSendChat(String message) { return userChatPanel.rendererSend(message); }
+    UUID rendererPlayerId() { return playerId; }
+    UUID rendererGameId() { return gameId; }
+    ShowCardsDialog rendererCardDialog(){return pickTarget.stream().filter(dialog->dialog.rendererCards()!=null).findFirst().orElse(null);}
+    PickPileDialog rendererPileDialog(){return pickPile.stream().filter(Component::isVisible).findFirst().orElse(null);}
+    java.util.Map<String,Object> rendererDistribution(){return pickMultiNumber.rendererChoice();}
+    boolean rendererDistributionChoose(String value){return pickMultiNumber.rendererChoose(value);}
+    boolean rendererPileChoose(String value){PickPileDialog dialog=rendererPileDialog();return dialog!=null&&dialog.rendererChoose(value);}
+    boolean rendererCardChoose(String value){
+        ShowCardsDialog dialog=rendererCardDialog();if(dialog==null)return false;
+        try {CardView card=dialog.rendererCards().get(UUID.fromString(value));if(card==null)return false;
+            if(lastGameData.targets!=null&&!lastGameData.targets.contains(card.getId()))return false;
+            DefaultActionCallback.instance.mouseClicked(gameId,card);return true;
+        }catch(IllegalArgumentException error){return false;}
+    }
+    java.util.List<java.util.Map<String,Object>> rendererChoices(){return abilityPicker.rendererChoices();}
+    java.util.Map<String,Object> rendererNumberChoice(){return pickNumber.rendererChoice();}
+    boolean rendererChoose(String kind,String value){return kind.equals("number")?pickNumber.rendererChoose(value):abilityPicker.rendererChoose(value);}
+    FeedbackPanel rendererFeedback() { return feedbackPanel; }
+    boolean rendererNeedsNativeDialog() {
+        return DialogManager.getManager(gameId).isVisible()
+                || abilityPicker.isVisible() || pickNumber.isVisible() || pickMultiNumber.isVisible()
+                || pickTarget.stream().anyMatch(Component::isVisible)
+                || pickPile.stream().anyMatch(Component::isVisible)
+                || java.util.Arrays.stream(Window.getWindows()).anyMatch(window ->
+                    window.isVisible() && window instanceof JDialog && ((JDialog) window).isModal())
+                || java.util.Arrays.stream(MageFrame.getDesktop().getAllFrames())
+                    .anyMatch(frame -> frame.isVisible() && frame instanceof MageDialog && ((MageDialog) frame).isModal());
+    }
+    void rendererShowNative() {
+        Window window = SwingUtilities.getWindowAncestor(this);
+        if (window != null) { window.toFront(); window.requestFocus(); }
+        if (gamePane != null) { MageFrame.setActive(gamePane); gamePane.requestFocusInWindow(); }
+    }
+
     public LastGameData getLastGameData() {
         return this.lastGameData;
     }
@@ -250,6 +325,40 @@ public final class GamePanel extends javax.swing.JPanel {
         // battlefields + phases
         JPanel pnlBattlefieldAndPhases = new JPanel(new BorderLayout());
         pnlBattlefieldAndPhases.setOpaque(false);
+        JPanel boardControls = new JPanel(new FlowLayout(FlowLayout.LEADING, 8, 0));
+        boardControls.setOpaque(false);
+        focusBoards.setOpaque(false);
+        battlefieldAnimations.setOpaque(false);
+        focusBoards.setFont(GUISizeHelper.dialogFont);
+        battlefieldAnimations.setFont(GUISizeHelper.dialogFont);
+        focusBoards.setSelected(Boolean.parseBoolean(getCachedValue(KEY_FOCUS_BOARDS, "true")));
+        battlefieldAnimations.setSelected(Boolean.parseBoolean(getCachedValue(KEY_BATTLEFIELD_ANIMATIONS, "true")));
+        focusBoards.setToolTipText("Keep your board and the priority player's board visible. Click another player's header to pin it open.");
+        battlefieldAnimations.setToolTipText("Brief priority, life-change and permanent-arrival effects. Game actions never wait for effects.");
+        focusBoards.setVisible(false);
+        focusBoards.addActionListener(event -> {
+            saveValue(KEY_FOCUS_BOARDS, Boolean.toString(focusBoards.isSelected()));
+            updateBoardFocus(lastGameData.game);
+            redrawBoardArrows();
+        });
+        battlefieldAnimations.addActionListener(event -> {
+            saveValue(KEY_BATTLEFIELD_ANIMATIONS, Boolean.toString(battlefieldAnimations.isSelected()));
+            players.values().forEach(panel -> panel.setAnimationsEnabled(battlefieldAnimations.isSelected()));
+        });
+        boardControls.add(focusBoards);
+        boardControls.add(battlefieldAnimations);
+        JButton browserButton = new JButton("Xmage Battlefield (experimental)");
+        browserButton.addActionListener(event -> {
+            if (lastGameData.game == null) return;
+            try {
+                if (browserRenderer == null) browserRenderer = new BrowserGameRenderer(this);
+                browserRenderer.open();
+            } catch (java.io.IOException error) {
+                JOptionPane.showMessageDialog(this, error.getMessage(), "Modern battlefield", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        boardControls.add(browserButton);
+        pnlBattlefieldAndPhases.add(boardControls, BorderLayout.NORTH);
         pnlBattlefieldAndPhases.add(pnlBattlefield, BorderLayout.CENTER);
         pnlBattlefieldAndPhases.add(phasesContainer, BorderLayout.EAST);
         pnlHelperHandButtonsStackArea.add(pnlBattlefieldAndPhases, BorderLayout.CENTER);
@@ -392,6 +501,7 @@ public final class GamePanel extends javax.swing.JPanel {
     }
 
     public void cleanUp() {
+        if (browserRenderer != null) { browserRenderer.close(); browserRenderer = null; }
         MageFrame.removeGame(gameId);
 
         this.gameChatPanel.cleanUp();
@@ -497,6 +607,9 @@ public final class GamePanel extends javax.swing.JPanel {
         for (PlayAreaPanel playAreaPanel : players.values()) {
             playAreaPanel.changeGUISize();
         }
+        focusBoards.setFont(GUISizeHelper.dialogFont);
+        battlefieldAnimations.setFont(GUISizeHelper.dialogFont);
+        updateBoardFocus(lastGameData.game);
 
         for (CardInfoWindowDialog windowDialog : exiles.values()) {
             windowDialog.changeGUISize();
@@ -958,9 +1071,13 @@ public final class GamePanel extends javax.swing.JPanel {
     }
 
     private void addPlayers(GameView game) {
+        boardFocusState = null;
+        focusedBattlefieldLayout = null;
+        focusBoards.setVisible(false);
         this.players.clear();
         this.playersWhoLeft.clear();
         this.pnlBattlefield.removeAll();
+        this.pnlBattlefield.setLayout(new GridBagLayout());
         //arrange players in a circle with the session player at the bottom left
         int numSeats = game.getPlayers().size();
         int numColumns = (numSeats + 1) / 2;
@@ -1064,6 +1181,59 @@ public final class GamePanel extends javax.swing.JPanel {
         this.pnlBattlefield.add(topPanel, panelC);
         panelC.gridy = 1;
         this.pnlBattlefield.add(bottomPanel, panelC);
+        players.values().forEach(panel -> panel.setAnimationsEnabled(battlefieldAnimations.isSelected()));
+        if (game.isPlayer() && players.size() > 2 && players.containsKey(playerId)) {
+            boardFocusState = new BoardFocusState(playerId);
+            focusBoards.setVisible(true);
+            this.pnlBattlefield.removeAll();
+            focusedBattlefieldLayout = new FocusedBattlefieldLayout(players.get(playerId),
+                    component -> ((PlayAreaPanel) component).isBoardCollapsed());
+            this.pnlBattlefield.setLayout(focusedBattlefieldLayout);
+            for (Map.Entry<UUID, PlayAreaPanel> entry : players.entrySet()) {
+                UUID id = entry.getKey();
+                PlayAreaPanel panel = entry.getValue();
+                this.pnlBattlefield.add(panel);
+                panel.getBattlefieldPanel().setTopPanelBattlefield(!id.equals(playerId));
+                if (!id.equals(playerId)) {
+                    panel.configureBoardToggle(() -> {
+                        boardFocusState.togglePinned(id);
+                        updateBoardFocus(lastGameData.game);
+                        redrawBoardArrows();
+                    });
+                }
+            }
+            updateBoardFocus(game);
+        }
+    }
+
+    private void updateBoardFocus(GameView game) {
+        if (boardFocusState == null || game == null) return;
+        UUID priorityId = game.getPlayers().stream()
+                .filter(PlayerView::hasPriority)
+                .map(PlayerView::getPlayerId).findFirst().orElse(null);
+        boardFocusState.setPriorityPlayer(priorityId);
+        boardFocusState.setEnabled(focusBoards.isSelected());
+        focusedBattlefieldLayout.setSizes(Math.max(96, GUISizeHelper.dialogFont.getSize() * 9),
+                Math.max(54, GUISizeHelper.dialogFont.getSize() * 4 + 8));
+        boolean changed = false;
+        for (Map.Entry<UUID, PlayAreaPanel> entry : players.entrySet()) {
+            boolean expanded = boardFocusState.isExpanded(entry.getKey());
+            changed |= entry.getValue().isBoardCollapsed() == expanded;
+            entry.getValue().setBoardExpanded(expanded, boardFocusState.isPinned(entry.getKey()));
+        }
+        if (changed) {
+            pnlBattlefield.revalidate();
+            pnlBattlefield.validate();
+            pnlBattlefield.repaint();
+        }
+    }
+
+    private void redrawBoardArrows() {
+        SwingUtilities.invokeLater(() -> {
+            if (isShowing() && lastGameData.game != null) {
+                CombatManager.instance.showCombat(lastGameData.game.getCombat(), gameId);
+            }
+        });
     }
 
     public synchronized void updateGame(int messageId, GameView game) {
@@ -1222,6 +1392,7 @@ public final class GamePanel extends javax.swing.JPanel {
                 // can happen at the game start before player list is initiated
             }
         }
+        updateBoardFocus(lastGameData.game);
         updateSkipButtons();
 
         if (!menuNameSet) {
@@ -1282,6 +1453,9 @@ public final class GamePanel extends javax.swing.JPanel {
             if (player.hasLeft() && !playersWhoLeft.get(player.getPlayerId())) {
                 PlayAreaPanel playerLeftPanel = players.get(player.getPlayerId());
                 playersWhoLeft.put(player.getPlayerId(), true);
+
+                // Focus layout owns board sizes, including compact headers for departed players.
+                if (boardFocusState != null) continue;
 
                 Container parent = playerLeftPanel.getParent();
                 GridBagLayout layout = (GridBagLayout) parent.getLayout();

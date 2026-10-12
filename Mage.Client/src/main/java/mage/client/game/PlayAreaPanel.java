@@ -5,6 +5,7 @@ import mage.client.SessionHandler;
 import mage.client.cards.BigCard;
 import mage.client.dialog.PreferencesDialog;
 import mage.client.util.GUISizeHelper;
+import mage.cards.MageCard;
 import mage.constants.PlayerAction;
 import mage.view.GameView;
 import mage.view.PlayerView;
@@ -36,6 +37,30 @@ public class PlayAreaPanel extends javax.swing.JPanel {
     private boolean playingMode = true;
     private final GamePanel gamePanel;
     private final PlayAreaPanelOptions options;
+    private final JPanel boardContent = new JPanel(new BorderLayout());
+    private final JPanel boardHeader = new JPanel(new BorderLayout(6, 0));
+    private final JButton boardToggle = new JButton();
+    private final JLabel boardSummary = new JLabel();
+    private final JLabel lifeChange = new JLabel() {
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            Graphics2D g = (Graphics2D) graphics.create();
+            g.setComposite(AlphaComposite.SrcOver.derive(effectAlpha(lifeChangeStarted, 1000)));
+            super.paintComponent(g);
+            g.dispose();
+        }
+    };
+    private final Timer effectsTimer = new Timer(30, event -> tickEffects());
+    private boolean boardCollapsed;
+    private boolean boardPinned;
+    private boolean priority;
+    private boolean receivedGameState;
+    private boolean animationsEnabled = true;
+    private Integer previousLife;
+    private long lifeChangeStarted;
+    private long priorityStarted;
+    private int accumulatedLifeChange;
+    private Runnable toggleBoard;
 
     private JCheckBoxMenuItem manaPoolMenuItem1;
     private JCheckBoxMenuItem manaPoolMenuItem2;
@@ -72,6 +97,7 @@ public class PlayAreaPanel extends javax.swing.JPanel {
     }
 
     public void CleanUp() {
+        stopEffects();
         battlefieldPanel.cleanUp();
         playerPanel.cleanUp();
 
@@ -105,6 +131,9 @@ public class PlayAreaPanel extends javax.swing.JPanel {
 
     private void setGUISize() {
         GUISizeHelper.changePopupMenuFont(popupMenu);
+        boardToggle.setFont(GUISizeHelper.dialogFont.deriveFont(Font.BOLD));
+        boardSummary.setFont(GUISizeHelper.dialogFont);
+        lifeChange.setFont(GUISizeHelper.dialogFont.deriveFont(Font.BOLD));
     }
 
     private void addPopupMenuPlayer(boolean allowRequestToShowHandCards) {
@@ -502,6 +531,10 @@ public class PlayAreaPanel extends javax.swing.JPanel {
     }
 
     public final void init(PlayerView player, BigCard bigCard, UUID gameId, int priorityTime) {
+        stopEffects();
+        receivedGameState = false;
+        previousLife = null;
+        priority = false;
         this.playerPanel.init(gameId, player.getPlayerId(), player.getControlled(), bigCard, priorityTime);
         this.battlefieldPanel.init(gameId, bigCard);
         this.gameId = gameId;
@@ -513,6 +546,31 @@ public class PlayAreaPanel extends javax.swing.JPanel {
     public final void update(GameView game, PlayerView player, Set<UUID> possibleTargets, Set<UUID> chosenTargets) {
         this.playerPanel.update(game, player, possibleTargets, chosenTargets);
         this.battlefieldPanel.update(player.getBattlefield());
+        boolean hasPriority = game != null && player.hasPriority();
+        if (animationsEnabled && receivedGameState && isShowing()) {
+            if (hasPriority && !priority) {
+                priorityStarted = System.nanoTime();
+                effectsTimer.start();
+            }
+            if (previousLife != null && previousLife != player.getLife()) {
+                if (effectAlpha(lifeChangeStarted, 1000) == 0) accumulatedLifeChange = 0;
+                accumulatedLifeChange += player.getLife() - previousLife;
+                lifeChange.setText(String.format("%+d", accumulatedLifeChange));
+                lifeChange.setForeground(accumulatedLifeChange < 0 ? new Color(210, 65, 65) : new Color(45, 160, 100));
+                lifeChangeStarted = System.nanoTime();
+                effectsTimer.start();
+            }
+        }
+        previousLife = player.getLife();
+        priority = hasPriority;
+        receivedGameState |= game != null;
+        String status = player.hasLeft() ? "Left" : hasPriority ? (boardPinned ? "Priority, pinned" : "Priority") : boardPinned ? "Pinned" : "";
+        boardToggle.setText(player.getName() + (status.isEmpty() ? "" : " - " + status));
+        int targetCount = possibleTargets == null ? 0 : (int) possibleTargets.stream()
+                .filter(id -> id.equals(player.getPlayerId()) || player.getBattlefield().containsKey(id)).count();
+        boardSummary.setText(player.getLife() + " life  |  " + player.getBattlefield().size() + " in play"
+                + (targetCount > 0 ? "  |  Targets available" : ""));
+        boardHeader.setToolTipText(boardToggle.getText() + ": " + boardSummary.getText());
         if (this.allowViewHandCardsMenuItem != null) {
             this.allowViewHandCardsMenuItem.setSelected(player.getUserData().isAllowRequestHandToAll());
         }
@@ -526,6 +584,78 @@ public class PlayAreaPanel extends javax.swing.JPanel {
         return playerPanel;
     }
 
+    public boolean isBoardCollapsed() {
+        return boardCollapsed;
+    }
+
+    public void configureBoardToggle(Runnable toggle) {
+        toggleBoard = toggle;
+        boardToggle.setFocusable(toggle != null);
+    }
+
+    public void setBoardExpanded(boolean expanded, boolean pinned) {
+        boardPinned = pinned;
+        String status = playerPanel.getPlayer().hasLeft() ? "Left" : priority ? (pinned ? "Priority, pinned" : "Priority") : pinned ? "Pinned" : "";
+        boardToggle.setText(playerName + (status.isEmpty() ? "" : " - " + status));
+        boardToggle.setToolTipText(toggleBoard == null ? "Your board stays open"
+                : pinned ? "Unpin this board (priority keeps it open)" : "Click to keep this board open");
+        if (boardCollapsed == !expanded) return;
+        boardCollapsed = !expanded;
+        boardContent.setVisible(expanded);
+        revalidate();
+        repaint();
+    }
+
+    /** Hidden permanents still point to their owner's visible collapsed header. */
+    public Point getPermanentScreenPoint(MageCard permanent) {
+        return boardCollapsed ? getLocationOnScreen() : permanent.getCardLocationOnScreen().getCardPoint();
+    }
+
+    public void setAnimationsEnabled(boolean enabled) {
+        animationsEnabled = enabled;
+        battlefieldPanel.setAnimationsEnabled(enabled);
+        if (!enabled) stopEffects();
+    }
+
+    private float effectAlpha(long started, int durationMillis) {
+        if (started == 0) return 0;
+        return Math.max(0, 1f - (System.nanoTime() - started) / (durationMillis * 1_000_000f));
+    }
+
+    private void tickEffects() {
+        if (!isShowing() || (effectAlpha(priorityStarted, 550) == 0 && effectAlpha(lifeChangeStarted, 1000) == 0)) {
+            stopEffects();
+        }
+        repaint();
+    }
+
+    private void stopEffects() {
+        effectsTimer.stop();
+        priorityStarted = lifeChangeStarted = 0;
+        lifeChange.setText("");
+        repaint();
+    }
+
+    @Override
+    public void removeNotify() {
+        stopEffects();
+        super.removeNotify();
+    }
+
+    @Override
+    protected void paintChildren(Graphics graphics) {
+        super.paintChildren(graphics);
+        float alpha = effectAlpha(priorityStarted, 550);
+        if (alpha > 0) {
+            Graphics2D g = (Graphics2D) graphics.create();
+            g.setComposite(AlphaComposite.SrcOver.derive(alpha));
+            g.setColor(new Color(95, 170, 255));
+            g.setStroke(new BasicStroke(3));
+            g.drawRoundRect(2, 2, Math.max(0, getWidth() - 5), Math.max(0, getHeight() - 5), 8, 8);
+            g.dispose();
+        }
+    }
+
     private void initComponents() {
         setBorder(BorderFactory.createLineBorder(new Color(0, 0, 0, 0)));
         playerPanel = new PlayerPanelExt(GUISizeHelper.playerPanelGuiScale);
@@ -534,8 +664,30 @@ public class PlayAreaPanel extends javax.swing.JPanel {
         battlefieldPanel.setPreferredSize(new Dimension(Short.MAX_VALUE, Short.MAX_VALUE));
 
         this.setLayout(new BorderLayout());
-        this.add(playerPanel, BorderLayout.WEST);
-        this.add(battlefieldPanel, BorderLayout.CENTER);
+        boardContent.setOpaque(false);
+        boardContent.add(playerPanel, BorderLayout.WEST);
+        boardContent.add(battlefieldPanel, BorderLayout.CENTER);
+        boardHeader.setBorder(BorderFactory.createEmptyBorder(3, 6, 3, 6));
+        boardToggle.setHorizontalAlignment(SwingConstants.LEADING);
+        boardToggle.setMargin(new Insets(1, 4, 1, 4));
+        boardToggle.addActionListener(event -> { if (toggleBoard != null) toggleBoard.run(); });
+        boardHeader.add(boardToggle, BorderLayout.NORTH);
+        JPanel values = new JPanel();
+        values.setOpaque(false);
+        values.setLayout(new BoxLayout(values, BoxLayout.X_AXIS));
+        values.add(boardSummary);
+        values.add(Box.createHorizontalStrut(8));
+        values.add(lifeChange);
+        values.add(Box.createHorizontalGlue());
+        boardHeader.add(values, BorderLayout.CENTER);
+        boardSummary.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent event) {
+                if (SwingUtilities.isLeftMouseButton(event) && toggleBoard != null) toggleBoard.run();
+            }
+        });
+        this.add(boardHeader, BorderLayout.NORTH);
+        this.add(boardContent, BorderLayout.CENTER);
         this.add(Box.createRigidArea(new Dimension(0, 10)), BorderLayout.SOUTH); // bottom free space
     }
 

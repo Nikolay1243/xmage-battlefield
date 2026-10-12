@@ -17,6 +17,10 @@ import java.util.UUID;
  */
 public class PickPileDialog extends MageDialog {
 
+    private CardsView rendererPile1,rendererPile2;
+    public CardsView rendererPile(int i){return isVisible()?(i==0?rendererPile1:rendererPile2):null;}
+    public String rendererTitle(){return title;}
+    public boolean rendererChoose(String value){if(!isVisible())return false;if(value.equals("0")){btnPile1ActionPerformed(null);return true;}if(value.equals("1")){btnPile2ActionPerformed(null);return true;}return false;}
     private final CardArea pile1;
     private final CardArea pile2;
 
@@ -58,6 +62,7 @@ public class PickPileDialog extends MageDialog {
         this.pickedOK = false;
         this.pickedPile1 = false;
         this.title = name;
+        rendererPile1=pile1;rendererPile2=pile2;
         this.pile1.loadCardsNarrow(pile1, bigCard, gameId);
         this.pile2.loadCardsNarrow(pile2, bigCard, gameId);
         this.callback = callback;

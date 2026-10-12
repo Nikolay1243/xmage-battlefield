@@ -159,6 +159,7 @@ public class TablesPanel extends javax.swing.JPanel {
     private final Map<JTable, String> tablesLastSelection = new HashMap<>();
 
     final JToggleButton[] filterButtons;
+    private LobbyHeader lobbyHeader;
 
     // time formatter
     private final PrettyTime timeFormatter = new PrettyTime(Locale.ENGLISH);
@@ -401,6 +402,7 @@ public class TablesPanel extends javax.swing.JPanel {
         jScrollPaneTablesActive.getViewport().setBackground(new Color(255, 255, 255, 50));
         jScrollPaneTablesFinished.getViewport().setBackground(new Color(255, 255, 255, 50));
 
+        initLobbyLayout();
         restoreFilters();
         setGUISize();
 
@@ -598,14 +600,60 @@ public class TablesPanel extends javax.swing.JPanel {
         setGUISize();
     }
 
+    /** Keep presentation changes outside the NetBeans-generated form. */
+    private void initLobbyLayout() {
+        btnStateWaiting.setText("Waiting");
+        btnStateActive.setText("Playing");
+        btnStateFinished.setText("Finished");
+        btnPassword.setText("Password");
+        btnQuickStart2Player.setVisible(false);
+        btnQuickStart4Player.setVisible(false);
+        btnQuickStartMCTS.setVisible(false);
+
+        lobbyHeader = new LobbyHeader(btnNewTable, btnNewTournament,
+                new JButton[]{btnQuickStart2Player, btnQuickStart4Player, btnQuickStartMCTS},
+                new JToggleButton[]{btnStateWaiting, btnStateActive, btnStateFinished,
+                        btnTypeMatch, btnTypeTourneyConstructed, btnTypeTourneyLimited},
+                new JToggleButton[]{btnFormatBlock, btnFormatStandard, btnFormatModern, btnFormatPioneer,
+                        btnFormatLegacy, btnFormatVintage, btnFormatPremodern, btnFormatCommander,
+                        btnFormatOathbreaker, btnFormatTinyLeader, btnFormatLimited, btnFormatOther},
+                new JToggleButton[]{btnSkillBeginner, btnSkillCasual, btnSkillSerious,
+                        btnRated, btnUnrated, btnOpen, btnPassword});
+        jPanelTop.removeAll();
+        jPanelTop.setLayout(new BorderLayout());
+        jPanelTop.add(lobbyHeader, BorderLayout.CENTER);
+
+        setBorder(new EmptyBorder(8, 8, 8, 8));
+        jPanelBottom.setBorder(new EmptyBorder(6, 8, 2, 8));
+        buttonWhatsNew.setText("What's new");
+        jSplitPaneTables.setResizeWeight(0.75);
+        for (JTable table : new JTable[]{tableTables, tableCompleted}) {
+            table.setShowVerticalLines(false);
+            table.setIntercellSpacing(new Dimension(0, 1));
+            table.setFillsViewportHeight(true);
+        }
+    }
+
+    private void setLobbySectionBorder(JComponent component, String title) {
+        component.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createEmptyBorder(8, 6, 6, 6), title,
+                javax.swing.border.TitledBorder.LEADING, javax.swing.border.TitledBorder.TOP,
+                GUISizeHelper.dialogFont.deriveFont(Font.BOLD), getCurrentTheme().getTextColor()));
+    }
+
     private void setGUISize() {
         tableTables.getTableHeader().setFont(GUISizeHelper.tableFont);
         tableTables.setFont(GUISizeHelper.tableFont);
-        tableTables.setRowHeight(GUISizeHelper.tableRowHeight);
+        tableTables.setRowHeight(GUISizeHelper.tableRowHeight + 6);
 
         tableCompleted.getTableHeader().setFont(GUISizeHelper.tableFont);
         tableCompleted.setFont(GUISizeHelper.tableFont);
-        tableCompleted.setRowHeight(GUISizeHelper.tableRowHeight);
+        tableCompleted.setRowHeight(GUISizeHelper.tableRowHeight + 6);
+
+        lobbyHeader.setLobbyFont(GUISizeHelper.dialogFont);
+        setLobbySectionBorder(jScrollPaneTablesActive, "Available & active tables");
+        setLobbySectionBorder(jScrollPaneTablesFinished, "Recently finished");
+        setLobbySectionBorder(chatPanelMain, "Lobby chat & players");
 
         jSplitPane1.setDividerSize(GUISizeHelper.dividerBarSize);
         jSplitPaneTables.setDividerSize(GUISizeHelper.dividerBarSize);
@@ -627,16 +675,13 @@ public class TablesPanel extends javax.swing.JPanel {
         newimg = img.getScaledInstance(GUISizeHelper.dialogFont.getSize(), GUISizeHelper.dialogFont.getSize(), java.awt.Image.SCALE_SMOOTH);
         btnStateFinished.setIcon(new ImageIcon(newimg));
 
-        int iconSize = 48 + GUISizeHelper.dialogFont.getSize() * 2 - 15;
-        icon = new javax.swing.ImageIcon(getClass().getResource("/buttons/match_new.png"));
-        img = icon.getImage();
-        newimg = img.getScaledInstance(iconSize, iconSize, java.awt.Image.SCALE_SMOOTH);
-        btnNewTable.setIcon(new ImageIcon(newimg));
-
-        icon = new javax.swing.ImageIcon(getClass().getResource("/buttons/tourney_new.png"));
-        img = icon.getImage();
-        newimg = img.getScaledInstance(iconSize, iconSize, java.awt.Image.SCALE_SMOOTH);
-        btnNewTournament.setIcon(new ImageIcon(newimg));
+        // The old creation icons contain tiny text; use readable button labels instead.
+        btnNewTable.setIcon(null);
+        btnNewTournament.setIcon(null);
+        btnNewTable.setFont(GUISizeHelper.dialogFont.deriveFont(Font.BOLD));
+        btnNewTournament.setFont(GUISizeHelper.dialogFont);
+        btnNewTable.setMargin(new Insets(6, 12, 6, 12));
+        btnNewTournament.setMargin(new Insets(6, 12, 6, 12));
 
         for (JToggleButton component : filterButtons) {
             component.setFont(GUISizeHelper.dialogFont);

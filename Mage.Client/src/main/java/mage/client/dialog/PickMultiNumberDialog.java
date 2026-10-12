@@ -24,6 +24,8 @@ import java.util.stream.Collectors;
  */
 public class PickMultiNumberDialog extends MageDialog {
 
+    private int rendererMin,rendererMax;
+    private List<MultiAmountMessage> rendererMessages;
     private boolean cancel;
     private PickMultiNumberCallback callback = null;
 
@@ -49,6 +51,7 @@ public class PickMultiNumberDialog extends MageDialog {
 
     public void showDialog(List<MultiAmountMessage> messages, int min, int max, Map<String, Serializable> options, PickMultiNumberCallback callback) {
         this.cancel = false;
+        rendererMin=min;rendererMax=max;rendererMessages=messages;
         this.callback = callback;
 
         this.header.setText("<html>" + ManaSymbols.replaceSymbolsWithHTML((String) options.get("header"), ManaSymbols.Type.DIALOG));
@@ -150,6 +153,28 @@ public class PickMultiNumberDialog extends MageDialog {
 
         chooseEnabled &= totalChosenAmount >= min && totalChosenAmount <= max;
         btnOk.setEnabled(chooseEnabled);
+    }
+
+    public Map<String,Object> rendererChoice() {
+        if(!isVisible()||spinnerList==null)return null;
+        Map<String,Object> result=new java.util.LinkedHashMap<>();result.put("title",getTitle());result.put("min",rendererMin);result.put("max",rendererMax);result.put("canCancel",btnCancel.isVisible());
+        List<Map<String,Object>> items=new ArrayList<>();
+        for(int i=0;i<spinnerList.size();i++){Map<String,Object> row=new java.util.LinkedHashMap<>();SpinnerNumberModel model=(SpinnerNumberModel)spinnerList.get(i).getModel();row.put("label",rendererMessages.get(i).message.replaceAll("<[^>]*>"," "));row.put("min",model.getMinimum());row.put("max",model.getMaximum());row.put("value",model.getNumber());items.add(row);}
+        result.put("items",items);return result;
+    }
+    public static boolean validAmounts(List<Integer> values,List<MultiAmountMessage> messages,int min,int max){
+        if(values.size()!=messages.size())return false;long total=0;
+        for(int i=0;i<values.size();i++){int value=values.get(i);if(value<messages.get(i).min||value>messages.get(i).max)return false;total+=value;}
+        return total>=min&&total<=max;
+    }
+    public boolean rendererChoose(String value){
+        if(!isVisible()||spinnerList==null)return false;
+        if(value.equals("cancel")){if(!btnCancel.isVisible())return false;btnCancel.doClick(0);return true;}
+        try {List<Integer> amounts=new ArrayList<>();for(String token:value.trim().split("\\s+"))amounts.add(Integer.parseInt(token));
+            if(!validAmounts(amounts,rendererMessages,rendererMin,rendererMax))return false;
+            for(int i=0;i<amounts.size();i++)spinnerList.get(i).setValue(amounts.get(i));
+            if(!btnOk.isEnabled())return false;btnOk.doClick(0);return true;
+        }catch(NumberFormatException error){return false;}
     }
 
     public String getMultiAmount() {

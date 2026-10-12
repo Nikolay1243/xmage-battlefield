@@ -31,6 +31,10 @@
      // remember if this dialog was already auto positioned, so don't do it after the first time
      // TODO: buggy, must remember by window title? Don't work with multiple triggers https://github.com/magefree/mage/issues/12281
      private boolean positioned;
+     private CardsView rendererCards;
+     private boolean rendererSupported;
+     public CardsView rendererCards(){return isVisible()&&rendererSupported?rendererCards:null;}
+     public String rendererTitle(){return title;}
 
      public ShowCardsDialog() {
          this.positioned = false;
@@ -95,6 +99,7 @@
                            UUID gameId, boolean modal, Map<String, Serializable> options,
                            JPopupMenu popupMenu, Listener<Event> eventListener) {
          this.title = name;
+         this.rendererCards=showCards;this.rendererSupported=popupMenu==null;
          this.setTitelBarToolTip(name);
          cardArea.clearCardEventListeners();
          cardArea.loadCards(showCards, bigCard, gameId);

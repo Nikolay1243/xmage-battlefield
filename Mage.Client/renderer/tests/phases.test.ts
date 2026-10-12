@@ -1,0 +1,2 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {phaseGroup} from '../src/phases.ts';
+test('phase rail distinguishes both main phases and end of combat from end of turn',()=>{assert.equal(phaseGroup('Precombat Main'),3);assert.equal(phaseGroup('Postcombat Main'),5);assert.equal(phaseGroup('End Combat'),4);assert.equal(phaseGroup('End Turn'),6);assert.equal(phaseGroup('Declare Blockers'),4);assert.equal(phaseGroup('Cleanup'),6);});

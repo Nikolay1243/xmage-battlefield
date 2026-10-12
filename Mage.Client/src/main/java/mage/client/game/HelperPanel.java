@@ -76,7 +76,7 @@ public class HelperPanel extends JPanel {
         // start timer to inform user about needed feedback (example: inform by sound play)
         needFeedbackTimer = new Timer(100, evt -> SwingUtilities.invokeLater(() -> {
             needFeedbackTimer.stop();
-            if (!AppUtil.isAppActive() || !AppUtil.isGameActive(this.gameId)) {
+            if ((!AppUtil.isAppActive() || !AppUtil.isGameActive(this.gameId)) && !GamePanel.rendererActive(this.gameId)) {
                 // sound notification
                 AudioManager.playFeedbackNeeded();
                 // tray notification (baloon + icon blinking)
@@ -277,6 +277,16 @@ public class HelperPanel extends JPanel {
     public void setSpecial(String txtSpecial, boolean specialVisible) {
         this.btnSpecial.setVisible(specialVisible);
         this.btnSpecial.setText(txtSpecial);
+    }
+
+    JButton rendererButton(String id) {
+        switch (id) {
+            case "left": return btnLeft;
+            case "right": return btnRight;
+            case "special": return btnSpecial;
+            case "undo": return btnUndo;
+            default: return null;
+        }
     }
 
     public void setUndoEnabled(boolean enabled) {

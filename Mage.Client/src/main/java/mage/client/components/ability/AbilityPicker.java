@@ -120,7 +120,9 @@ public class AbilityPicker extends JXPanel implements MouseWheelListener {
         for (Map.Entry<UUID, String> choice : choices.getChoices().entrySet()) {
             wasCancelButton = wasCancelButton || choice.getKey().equals(Modes.CHOOSE_OPTION_CANCEL_ID);
             String htmlText = CHOICE_PREFIX + ManaSymbols.replaceSymbolsWithHTML(CardUtil.getTextWithFirstCharUpperCase(choice.getValue()), ManaSymbols.Type.DIALOG);
-            this.choices.add(new AbilityPickerAction(choice.getKey(), htmlText));
+            AbilityPickerAction rendererAction=new AbilityPickerAction(choice.getKey(), htmlText);
+            rendererAction.putValue("rendererLabel",choice.getValue());
+            this.choices.add(rendererAction);
         }
         if (!wasCancelButton) {
             this.choices.add(new AbilityPickerAction(null, "Cancel"));
@@ -333,6 +335,24 @@ public class AbilityPicker extends JXPanel implements MouseWheelListener {
         } catch (InterruptedException ignore) {
         }
 
+    }
+
+    public java.util.List<java.util.Map<String,Object>> rendererChoices() {
+        java.util.List<java.util.Map<String,Object>> result=new java.util.ArrayList<>();
+        if(!isVisible()||choices==null)return result;
+        for(int i=0;i<choices.size();i++) {
+            Object value=choices.get(i);if(!(value instanceof AbilityPickerAction))continue;
+            java.util.Map<String,Object> row=new java.util.LinkedHashMap<>();
+            row.put("id",String.valueOf(i));String label=(String)((AbilityPickerAction)value).getValue("rendererLabel");row.put("label",(label==null?value.toString():label).replaceAll("<[^>]*>"," ").replace("&nbsp;"," "));
+            result.add(row);
+        }
+        return result;
+    }
+    public boolean rendererChoose(String index) {
+        if(!isVisible()||choices==null)return false;
+        try {int i=Integer.parseInt(index);if(i<0||i>=choices.size()||!(choices.get(i) instanceof AbilityPickerAction))return false;
+            ((AbilityPickerAction)choices.get(i)).actionPerformed(null);return true;
+        }catch(NumberFormatException error){return false;}
     }
 
     public class AbilityPickerAction extends AbstractAction {

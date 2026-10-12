@@ -27,7 +27,7 @@ public final class ArrowUtil {
             for (PlayAreaPanel pa : MageFrame.getGamePlayers(data.getGameId()).values()) {
                 MageCard permanent = pa.getBattlefieldPanel().getPermanentPanels().get(uuid);
                 if (permanent != null) {
-                    Point target = permanent.getCardLocationOnScreen().getCardPoint();
+                    Point target = pa.getPermanentScreenPoint(permanent);
                     target.translate(-parentPoint.x, -parentPoint.y);
                     ArrowBuilder.getBuilder().addArrow(data.getGameId(), (int) me.getX() + 35, (int) me.getY(), (int) target.getX() + 40, (int) target.getY() + 10, Color.green, ArrowBuilder.Type.PAIRED);
                 }
@@ -43,7 +43,7 @@ public final class ArrowUtil {
                 for (UUID uuid : data.getCard().getBandedCards()) {
                     MageCard permanent = pa.getBattlefieldPanel().getPermanentPanels().get(uuid);
                     if (permanent != null) {
-                        Point target = permanent.getCardLocationOnScreen().getCardPoint();
+                        Point target = pa.getPermanentScreenPoint(permanent);
                         target.translate(-parentPoint.x, -parentPoint.y);
                         ArrowBuilder.getBuilder().addArrow(data.getGameId(), (int) me.getX() + 55, (int) me.getY() + 25, (int) target.getX() + 60, (int) target.getY() + 35, Color.yellow, ArrowBuilder.Type.BANDED);
                     }
@@ -63,7 +63,7 @@ public final class ArrowUtil {
                         if (attachmentId.equals(data.getCard().getId())) {
                             Point player = pa.getLocationOnScreen();
                             player.translate(-parentPoint.x, -parentPoint.y);
-                            ArrowBuilder.getBuilder().addArrow(data.getGameId(), (int) me.getX() + 35, (int) me.getY(), (int) player.getX() + 40, (int) player.getY() - 40, Color.magenta, ArrowBuilder.Type.ENCHANT_PLAYERS);
+                            ArrowBuilder.getBuilder().addArrow(data.getGameId(), (int) me.getX() + 35, (int) me.getY(), (int) player.getX() + 40, (int) player.getY() + (pa.isBoardCollapsed() ? 20 : -40), Color.magenta, ArrowBuilder.Type.ENCHANT_PLAYERS);
                         }
                     }
                 }
@@ -79,7 +79,7 @@ public final class ArrowUtil {
             for (PlayAreaPanel pa : MageFrame.getGamePlayers(data.getGameId()).values()) {
                 MageCard permanent = pa.getBattlefieldPanel().getPermanentPanels().get(uuid);
                 if (permanent != null) {
-                    Point source = permanent.getCardLocationOnScreen().getCardPoint();
+                    Point source = pa.getPermanentScreenPoint(permanent);
                     source.translate(-parentPoint.x, -parentPoint.y);
                     ArrowBuilder.getBuilder().addArrow(data.getGameId(), (int) source.getX() + 40, (int) source.getY() + 10, (int) me.getX() + 35, (int) me.getY() + 20, Color.blue, ArrowBuilder.Type.SOURCE);
                 }
@@ -101,14 +101,14 @@ public final class ArrowUtil {
             if (p != null) {
                 Point target = p.getLocationOnScreen();
                 target.translate(-parentPoint.x, -parentPoint.y);
-                ArrowBuilder.getBuilder().addArrow(data.getGameId(), (int) me.getX() + 35, (int) me.getY(), (int) target.getX() + 40, (int) target.getY() - 40, Color.red, ArrowBuilder.Type.TARGET);
+                ArrowBuilder.getBuilder().addArrow(data.getGameId(), (int) me.getX() + 35, (int) me.getY(), (int) target.getX() + 40, (int) target.getY() + (p.isBoardCollapsed() ? 20 : -40), Color.red, ArrowBuilder.Type.TARGET);
                 continue;
             }
 
             for (PlayAreaPanel panel : MageFrame.getGamePlayers(data.getGameId()).values()) {
                 MageCard permanent = panel.getBattlefieldPanel().getPermanentPanels().get(uuid);
                 if (permanent != null) {
-                    Point target = permanent.getCardLocationOnScreen().getCardPoint();
+                    Point target = panel.getPermanentScreenPoint(permanent);
                     target.translate(-parentPoint.x, -parentPoint.y);
                     ArrowBuilder.getBuilder().addArrow(data.getGameId(), (int) me.getX() + 35, (int) me.getY(), (int) target.getX() + 40, (int) target.getY() + 10, Color.red, ArrowBuilder.Type.TARGET);
                     continue;
@@ -123,7 +123,7 @@ public final class ArrowUtil {
                             Point target = p.getLocationOnScreen();
                             target.translate(-parentPoint.x, -parentPoint.y);
                             int yOffset = p.isSmallMode() ? (PlayAreaPanel.PANEL_HEIGHT - PlayAreaPanel.PANEL_HEIGHT_SMALL) : 0;
-                            ArrowBuilder.getBuilder().addArrow(data.getGameId(), (int) me.getX() + 35, (int) me.getY(), (int) target.getX() + 15, (int) target.getY() + 145 - yOffset, Color.red, ArrowBuilder.Type.TARGET);
+                            ArrowBuilder.getBuilder().addArrow(data.getGameId(), (int) me.getX() + 35, (int) me.getY(), (int) target.getX() + 15, (int) target.getY() + (p.isBoardCollapsed() ? 20 : 145 - yOffset), Color.red, ArrowBuilder.Type.TARGET);
                         }
                     }
                 }

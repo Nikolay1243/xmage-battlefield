@@ -372,8 +372,8 @@ public class CardPluginImpl implements CardPlugin {
                     if (cardsPanel != null) {
                         cardsPanel.setComponentZOrder(panelPerm.getTopPanelRef(), panelIndex);
                     }
-                    int panelX = x + (stackPosition * stackSpacingX);
-                    int panelY = y + (stackPosition * stackSpacingY);
+                    int panelX = x + (stackPosition * stack.getSpacingX());
+                    int panelY = y + (stackPosition * stack.getSpacingY());
                     try {
                         // may cause:
                         // java.lang.IllegalArgumentException: illegal component position 26 should be
@@ -595,12 +595,25 @@ public class CardPluginImpl implements CardPlugin {
             super(8);
         }
 
+        private boolean isHorizontalLandStack() {
+            return !isEmpty() && get(0).isLand() && !get(0).isCreature();
+        }
+
+        private int getSpacingX() {
+            // Leave an exposed, clickable strip on every land, including at small card sizes.
+            return isHorizontalLandStack() ? Math.max(18, Math.round(cardWidth * 0.24f)) : stackSpacingX;
+        }
+
+        private int getSpacingY() {
+            return isHorizontalLandStack() ? 0 : stackSpacingY;
+        }
+
         private int getWidth() {
-            return cardWidth + (size() - 1) * stackSpacingX + cardSpacingX + (12 * attachmentColumns);
+            return cardWidth + (size() - 1) * getSpacingX() + cardSpacingX + (12 * attachmentColumns);
         }
 
         private int getHeight() {
-            return cardHeight + (size() - 1) * stackSpacingY + cardSpacingY + attachmentSpacingY * maxAttachedCount;
+            return cardHeight + (size() - 1) * getSpacingY() + cardSpacingY + attachmentSpacingY * maxAttachedCount;
         }
 
         public int getMaxAttachedCount() {

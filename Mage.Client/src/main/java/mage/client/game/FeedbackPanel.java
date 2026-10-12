@@ -44,6 +44,7 @@ public class FeedbackPanel extends javax.swing.JPanel {
 
     private UUID gameId;
     private FeedbackMode mode;
+    private String rendererMessage = "";
     private MageDialog connectedDialog;
     private ChatPanelBasic connectedChatPanel;
     private Map<String, Serializable> lastOptions = new HashMap<>();
@@ -73,6 +74,7 @@ public class FeedbackPanel extends javax.swing.JPanel {
 
     public void prepareFeedback(FeedbackMode mode, String basicMessage, String additionalMessage, boolean special, Map<String, Serializable> options,
                                 boolean gameNeedUserFeedback, TurnPhase gameTurnPhase) {
+        rendererMessage = basicMessage + (additionalMessage == null || additionalMessage.isEmpty() ? "" : " — " + additionalMessage);
         synchronized (this) {
             this.lastOptions = options;
             this.mode = mode;
@@ -232,6 +234,7 @@ public class FeedbackPanel extends javax.swing.JPanel {
     }
 
     public void clear() {
+        rendererMessage = "";
         this.btnLeft.setVisible(false);
         this.btnRight.setVisible(false);
         this.btnSpecial.setVisible(false);
@@ -290,6 +293,37 @@ public class FeedbackPanel extends javax.swing.JPanel {
 
     public void setHelperPanel(HelperPanel helper) {
         this.helper = helper;
+    }
+
+    String rendererMessage() { return rendererMessage.replaceAll("<[^>]*>", " "); }
+
+    java.util.List<Map<String, Object>> rendererActions() {
+        java.util.List<Map<String, Object>> result = new ArrayList<>();
+        JButton[] buttons = {btnLeft, btnRight, btnSpecial, btnUndo};
+        String[] ids = {"left", "right", "special", "undo"};
+        for (int i = 0; i < buttons.length; i++) {
+            JButton button = helper == null ? buttons[i] : helper.rendererButton(ids[i]);
+            if (!button.isVisible()) continue;
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", ids[i]); item.put("label", button.getText()); item.put("enabled", button.isEnabled());
+            result.add(item);
+        }
+        return result;
+    }
+
+    boolean rendererClick(String id) {
+        JButton button;
+        switch (id) {
+            case "left": button = btnLeft; break;
+            case "right": button = btnRight; break;
+            case "special": button = btnSpecial; break;
+            case "undo": button = btnUndo; break;
+            default: return false;
+        }
+        JButton displayed = helper == null ? button : helper.rendererButton(id);
+        if (!displayed.isVisible() || !displayed.isEnabled()) return false;
+        button.doClick(0);
+        return true;
     }
 
     public FeedbackMode getMode() {
